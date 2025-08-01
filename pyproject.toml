@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "upload-decomp"
+version = "0.1.0"
+dependencies = [
+    "boto3>=1.37.9",
+    "botocore>=1.37.9",
+    "polars>=1.24.0",
+    "pyarrow>=19.0.1",
+]
+requires-python = ">= 3.10"
+authors = [
+  {name = "Rogerio Alves", email = "rogerioalves.ee@gmail.com"},
+]
+
+[tool.hatch.build.targets.wheel]
+include = [
+  "main.py",
+]
+
+[tool.ruff]
+line-length = 80
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[essential]>=1.37.9",
+    "ruff>=0.9.10",
+]
