@@ -24,6 +24,9 @@ include = [
 [tool.ruff]
 line-length = 80
 
+[project.scripts]
+decomp-pd-ingest = "main:main"
+
 [dependency-groups]
 dev = [
     "boto3-stubs[essential]>=1.37.9",
