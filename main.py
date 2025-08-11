@@ -39,7 +39,7 @@ class CenarioEstudo(Enum):
 
 
 DIRETORIO_SINTESE = "sintese"
-BUCKET_INGEST_S3 = "ons-dl-02-prd-raw"
+BUCKET_INGEST_S3 = "ons-dl-01-prd-raw"
 
 
 def key_arquivo_s3(pref: str, arq: str) -> str:
