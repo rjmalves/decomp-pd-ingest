@@ -15,12 +15,12 @@ def main():
     competencia = obtem_competencia()
     # 2.2- cenario (PROSPECTIVO_INFERIOR, PROSPECTIVO_SUPERIOR, OUTRO)
     cenario = obtem_cenario()
-    # 2.3- revisão (inteiro >= 0)
-    revisao = obtem_revisao()
+    # 2.3- versão (inteiro >= 0)
+    versao = obtem_versao()
     # 3- Edita dataframes da síntese adicionando as colunas a mais
-    atualiza_dataframes(competencia, cenario, revisao)
+    atualiza_dataframes(competencia, cenario, versao)
     # 4- Faz upload para o s3
-    upload_sintese_s3(competencia, cenario, revisao)
+    upload_sintese_s3(competencia, cenario, versao)
     print("Upload da sintese do DECOMP feito com sucesso!")
 
 
@@ -79,23 +79,23 @@ def obtem_cenario() -> CenarioEstudo:
         exit(1)
 
 
-def obtem_revisao() -> CenarioEstudo:
-    revisao_str = input("Insira a revisao do estudo (numero inteiro >= 0): ")
+def obtem_versao() -> CenarioEstudo:
+    versao_str = input("Insira a versao do estudo (numero inteiro >= 0): ")
     try:
-        revisao = int(revisao_str)
-        return revisao
+        versao = int(versao_str)
+        return versao
     except Exception:
-        print(f"Erro ao processar a revisao fornecida: {revisao_str}")
+        print(f"Erro ao processar a versao fornecida: {versao_str}")
         exit(1)
 
 
 def atualiza_dataframes(
-    competencia: datetime, cenario: CenarioEstudo, revisao: int
+    competencia: datetime, cenario: CenarioEstudo, versao: int
 ):
     print("Iniciando atualizacao local dos arquivos...")
     print(f"Competencia: {competencia.isoformat()}")
     print(f"Cenario: {cenario.value}")
-    print(f"Revisao: {revisao}")
+    print(f"Versao: {versao}")
     arq_diretorio_sintese = os.listdir(DIRETORIO_SINTESE)
     dataframes_sintese = [a for a in arq_diretorio_sintese if ".parquet" in a]
     for arq_df in dataframes_sintese:
@@ -109,7 +109,7 @@ def atualiza_dataframes(
                 .alias("competencia")
                 .dt.replace_time_zone("UTC"),
                 pl.lit(cenario.value).alias("cenario_estudo"),
-                pl.lit(revisao, dtype=pl.Int64).alias("revisao"),
+                pl.lit(versao, dtype=pl.Int64).alias("versao"),
             )
             df.write_parquet(caminho_df, compression="snappy")
         except Exception as e:
@@ -118,13 +118,13 @@ def atualiza_dataframes(
 
 
 def upload_sintese_s3(
-    competencia: datetime, cenario: CenarioEstudo, revisao: int
+    competencia: datetime, cenario: CenarioEstudo, versao: int
 ):
     print("Iniciando upload dos arquivos...")
     s3 = client("s3")
     arq_diretorio_sintese = os.listdir(DIRETORIO_SINTESE)
     dataframes_sintese = [a for a in arq_diretorio_sintese if ".parquet" in a]
-    pref = competencia.strftime("%Y_%m") + "_" + cenario.value + f"_rv{revisao}"
+    pref = competencia.strftime("%Y_%m") + "_" + cenario.value + f"_rv{versao}"
     for arq_df in dataframes_sintese:
         try:
             caminho_df = os.path.join(DIRETORIO_SINTESE, arq_df)
