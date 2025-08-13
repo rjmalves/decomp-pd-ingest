@@ -22,8 +22,6 @@ Edite os valores conforme necessário:
 BUCKET_NAME="my-bucket"
 BUCKET_PREFIX="my-prefix"
 SYNTHESIS_DIR="sintese"
-# AWS_REGION="sa-east-1"
-# AWS_PROFILE="default"
 ```
 
 ## Uso
