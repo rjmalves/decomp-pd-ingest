@@ -4,9 +4,41 @@ from enum import Enum
 
 import polars as pl
 from boto3 import client
+from dotenv import find_dotenv, load_dotenv
 
 
 def main():
+    # Carregamento de variáveis de ambiente com prioridade para diretório de instalação.
+    # Ordem de busca:
+    # 1. Variável DECOMP_PD_ENV_FILE (se definida e existente)
+    # 2. Diretório de instalação (onde este arquivo main.py reside)
+    # 3. Diretório de execução atual (.)
+    # 4. Busca ascendente via find_dotenv
+    install_dir = os.path.abspath(os.path.dirname(__file__))
+    env_override = os.getenv("DECOMP_PD_ENV_FILE")
+    candidate_paths = []
+    if env_override:
+        candidate_paths.append(env_override)
+    candidate_paths.append(os.path.join(install_dir, ".env"))
+    candidate_paths.append(os.path.join(os.getcwd(), ".env"))
+
+    dotenv_path = None
+    for p in candidate_paths:
+        if p and os.path.isfile(p):
+            dotenv_path = p
+            break
+    if not dotenv_path:
+        found = find_dotenv(usecwd=True)
+        if found:
+            dotenv_path = found
+    if dotenv_path:
+        load_dotenv(dotenv_path=dotenv_path, override=True)
+        print(f"Variáveis carregadas de: {dotenv_path}")
+    else:
+        print(
+            "Aviso: arquivo .env não encontrado; usando variáveis já presentes no ambiente."
+        )
+
     print("Script para upload da sintese do DECOMP para o Lake")
     # 1- Confere diretorio sintese/ a partir da chamada
     valida_diretorio_chamada()
@@ -38,22 +70,19 @@ class CenarioEstudo(Enum):
         raise ValueError(f"Cenario {val} nao reconhecido")
 
 
-DIRETORIO_SINTESE = "sintese"
-BUCKET_INGEST_S3 = "ons-dl-01-prd-raw"
-
-
 def key_arquivo_s3(pref: str, arq: str) -> str:
-    return f"ons/lake/decomp/{pref}/{arq}"
+    return f"{os.getenv('BUCKET_PREFIX')}/{pref}/{arq}"
 
 
 def valida_diretorio_chamada():
+    synthesis_dir = os.getenv("SYNTHESIS_DIR")
     conteudo = os.listdir(os.curdir)
-    contem_sintese = DIRETORIO_SINTESE in conteudo
-    diretorio_valido = os.path.isdir(DIRETORIO_SINTESE)
+    contem_sintese = synthesis_dir in conteudo
+    diretorio_valido = os.path.isdir(synthesis_dir)
     if contem_sintese and diretorio_valido:
-        print(f"Diretório de sintese (./{DIRETORIO_SINTESE}) encontrado")
+        print(f"Diretório de sintese (./{synthesis_dir}) encontrado")
     else:
-        print(f"Diretório de sintese (./{DIRETORIO_SINTESE}) não encontrado")
+        print(f"Diretório de sintese (./{synthesis_dir}) não encontrado")
         exit(1)
 
 
@@ -96,11 +125,12 @@ def atualiza_dataframes(
     print(f"Competencia: {competencia.isoformat()}")
     print(f"Cenario: {cenario.value}")
     print(f"Versao: {versao}")
-    arq_diretorio_sintese = os.listdir(DIRETORIO_SINTESE)
+    synthesis_dir = os.getenv("SYNTHESIS_DIR")
+    arq_diretorio_sintese = os.listdir(synthesis_dir)
     dataframes_sintese = [a for a in arq_diretorio_sintese if ".parquet" in a]
     for arq_df in dataframes_sintese:
         try:
-            caminho_df = os.path.join(DIRETORIO_SINTESE, arq_df)
+            caminho_df = os.path.join(synthesis_dir, arq_df)
             df = pl.read_parquet(caminho_df)
             dt_type = pl.Datetime
             dt_type.time_unit = "ns"
@@ -109,7 +139,7 @@ def atualiza_dataframes(
                 .alias("competencia")
                 .dt.replace_time_zone("UTC"),
                 pl.lit(cenario.value).alias("cenario_estudo"),
-                pl.lit(versao, dtype=pl.Int64).alias("versao"),
+                pl.lit(versao, dtype=pl.Int64).alias("revisao"),
             )
             df.write_parquet(caminho_df, compression="snappy")
         except Exception as e:
@@ -121,15 +151,18 @@ def upload_sintese_s3(
     competencia: datetime, cenario: CenarioEstudo, versao: int
 ):
     print("Iniciando upload dos arquivos...")
+    synthesis_dir = os.getenv("SYNTHESIS_DIR")
     s3 = client("s3")
-    arq_diretorio_sintese = os.listdir(DIRETORIO_SINTESE)
+    arq_diretorio_sintese = os.listdir(synthesis_dir)
     dataframes_sintese = [a for a in arq_diretorio_sintese if ".parquet" in a]
     pref = competencia.strftime("%Y_%m") + "_" + cenario.value + f"_rv{versao}"
     for arq_df in dataframes_sintese:
         try:
-            caminho_df = os.path.join(DIRETORIO_SINTESE, arq_df)
+            caminho_df = os.path.join(synthesis_dir, arq_df)
             s3.upload_file(
-                caminho_df, BUCKET_INGEST_S3, key_arquivo_s3(pref, arq_df)
+                caminho_df,
+                os.getenv("BUCKET_NAME"),
+                key_arquivo_s3(pref, arq_df),
             )
         except Exception as e:
             print(f"Erro no upload do arquivo {arq_df}: {str(e)}")
@@ -137,4 +170,5 @@ def upload_sintese_s3(
 
 
 if __name__ == "__main__":
+    # Mantido para compatibilidade se executado como script diretamente.
     main()
