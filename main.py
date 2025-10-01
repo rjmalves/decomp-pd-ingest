@@ -69,6 +69,18 @@ class CenarioEstudo(Enum):
                 return v
         raise ValueError(f"Cenario {val} nao reconhecido")
 
+    @classmethod
+    def from_index(cls, index: int) -> "CenarioEstudo":
+        index_map = {
+            0: "PROSPECTIVO_INFERIOR",
+            1: "PROSPECTIVO_SUPERIOR",
+            2: "PMO",
+            3: "OUTRO",
+        }
+        if index in index_map:
+            return cls.factory(index_map[index])
+        raise ValueError(f"Codigo {index} nao reconhecido")
+
 
 def key_arquivo_s3(pref: str, arq: str) -> str:
     return f"{os.getenv('BUCKET_PREFIX')}/{pref}/{arq}"
@@ -98,10 +110,10 @@ def obtem_competencia() -> datetime:
 def obtem_cenario() -> CenarioEstudo:
     cenario_str = input(
         "Insira o cenario do estudo"
-        + " (PROSPECTIVO_SUPERIOR, PROSPECTIVO_INFERIOR, PMO, OUTRO): "
+        + " (0 - PROSPECTIVO_INFERIOR, 1 - PROSPECTIVO_SUPERIOR, 2- PMO, 3 - OUTRO): "
     )
     try:
-        cenario = CenarioEstudo.factory(cenario_str)
+        cenario = CenarioEstudo.from_index(int(cenario_str))
         return cenario
     except Exception as e:
         print(str(e))
